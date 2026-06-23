@@ -1,0 +1,26 @@
+server:
+  port: 8080
+
+filesever:
+  ssh:
+    port: 2222
+    host-key-dir: ./hostkeys
+    disable-host-key-ip-check: true
+    users:
+      - username: admin
+        password: admin
+      - username: user1
+        password: user1
+  ftps:
+    port: 21
+    implicit-ssl: false
+    keystore-password: filesever
+    keystore-file: ./ftps.jks
+  file:
+    storage-dir: ./files
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 1GB
+      max-request-size: 1GB

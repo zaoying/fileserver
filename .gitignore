@@ -1,0 +1,14 @@
+target/
+*.class
+*.jar
+*.war
+*.log
+files/
+.uploads/
+hostkeys/
+ftps.jks
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
