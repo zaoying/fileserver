@@ -2,6 +2,20 @@ server:
   port: 8080
 
 filesever:
+  # Storage backend: local (default), s3, obs
+  storage:
+    type: local
+    s3:
+      bucket: my-s3-bucket
+      region: us-east-1
+      access-key: YOUR_AWS_ACCESS_KEY
+      secret-key: YOUR_AWS_SECRET_KEY
+    obs:
+      bucket: my-obs-bucket
+      endpoint: obs.cn-north-4.myhuaweicloud.com
+      access-key: YOUR_OBS_ACCESS_KEY
+      secret-key: YOUR_OBS_SECRET_KEY
+
   ssh:
     port: 2222
     host-key-dir: ./hostkeys

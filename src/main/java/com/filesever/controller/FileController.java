@@ -1,17 +1,17 @@
 package com.filesever.controller;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Stream;
 
-import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -29,7 +29,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.filesever.config.FileServerProperties;
+import com.filesever.storage.FileInfo;
+import com.filesever.storage.FileStorage;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -37,60 +38,58 @@ import jakarta.servlet.http.HttpServletRequest;
 @RequestMapping("/api/files")
 public class FileController {
 
-    private final Path storageDir;
+    private final FileStorage storage;
     private final Map<String, UploadSession> uploads = new ConcurrentHashMap<>();
 
-    public FileController(FileServerProperties properties) {
-        this.storageDir = properties.getFile().getStorageDir().toAbsolutePath();
-    }
-
-    private Path safeResolve(String path) {
-        Path target = storageDir.resolve(path).normalize();
-        if (!target.startsWith(storageDir)) {
-            return null;
-        }
-        return target;
+    public FileController(FileStorage storage) {
+        this.storage = storage;
     }
 
     @GetMapping
-    public List<String> listFiles(@RequestParam(defaultValue = "/") String dir) throws IOException {
-        Path target = safeResolve(dir);
-        if (target == null) return List.of("Access denied");
-        try (Stream<Path> paths = Files.list(target)) {
-            return paths.map(p -> Files.isDirectory(p)
-                    ? p.getFileName().toString() + "/"
-                    : p.getFileName().toString()).toList();
-        }
+    public List<Map<String, Object>> listFiles(@RequestParam(defaultValue = "/") String dir) {
+        String path = storage.normalize(dir);
+        return storage.listFiles(path).stream()
+                .map(f -> Map.<String, Object>of(
+                        "name", f.name(),
+                        "path", f.path(),
+                        "directory", f.directory(),
+                        "size", f.size(),
+                        "lastModified", f.lastModified()))
+                .toList();
     }
 
     @GetMapping("/download/**")
     public ResponseEntity<Resource> download(HttpServletRequest request) throws IOException {
         String path = request.getRequestURI()
-                .substring(request.getContextPath() + "/api/files/download/".length());
-        Path target = safeResolve(path);
-        if (target == null || !Files.exists(target) || Files.isDirectory(target)) {
+                .substring(request.getContextPath().length() + "/api/files/download/".length());
+        path = storage.normalize(path);
+
+        FileInfo info = storage.getFileInfo(path);
+        if (info == null || info.directory()) {
             return ResponseEntity.notFound().build();
         }
-        FileSystemResource resource = new FileSystemResource(target.toFile());
-        String contentType = Files.probeContentType(target);
-        if (contentType == null) contentType = "application/octet-stream";
+
+        InputStream in = storage.readFile(path);
+        if (in == null) return ResponseEntity.notFound().build();
+
+        String filename = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
+        String contentType = "application/octet-stream";
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + target.getFileName() + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .contentType(MediaType.parseMediaType(contentType))
-                .contentLength(Files.size(target))
-                .body(resource);
+                .contentLength(info.size())
+                .body(new InputStreamResource(in));
     }
 
     @PostMapping("/upload")
-    public String upload(@RequestParam("file") MultipartFile file,
-                         @RequestParam(defaultValue = "/") String dir) throws IOException {
-        Path targetDir = safeResolve(dir);
-        if (targetDir == null) return "Access denied";
-        Files.createDirectories(targetDir);
-        Path target = targetDir.resolve(file.getOriginalFilename());
-        file.transferTo(target.toFile());
-        return "Uploaded: " + target.getFileName();
+    public Map<String, String> upload(@RequestParam("file") MultipartFile file,
+                                       @RequestParam(defaultValue = "/") String dir) throws IOException {
+        String path = storage.normalize(dir + "/" + file.getOriginalFilename());
+        try (InputStream in = file.getInputStream()) {
+            storage.writeFile(path, in, file.getSize());
+        }
+        return Map.of("status", "uploaded", "path", path);
     }
 
     @PostMapping("/upload/init")
@@ -100,21 +99,17 @@ public class FileController {
         long totalSize = body.get("totalSize") instanceof Number
                 ? ((Number) body.get("totalSize")).longValue() : -1;
 
-        Path targetDir = safeResolve(dir);
-        if (targetDir == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Access denied"));
-        }
-
         String uploadId = UUID.randomUUID().toString().replace("-", "");
-        Path tempFile = storageDir.resolve(".uploads").resolve(uploadId + ".tmp");
+        Path tempDir = Path.of(".uploads");
         try {
-            Files.createDirectories(tempFile.getParent());
+            Files.createDirectories(tempDir);
         } catch (IOException e) {
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
 
-        UploadSession session = new UploadSession(uploadId, filename, targetDir.resolve(filename),
-                tempFile, totalSize, 0);
+        String targetPath = storage.normalize(dir + "/" + filename);
+        UploadSession session = new UploadSession(uploadId, filename, targetPath,
+                totalSize, 0);
         uploads.put(uploadId, session);
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -138,17 +133,17 @@ public class FileController {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
                         .body(Map.of("error", "Offset mismatch", "expected", session.currentOffset));
             }
-            try (RandomAccessFile raf = new RandomAccessFile(session.tempFile.toFile(), "rw")) {
-                raf.seek(offset);
-                raf.write(data);
-            }
+            session.buffer.write(data);
             session.currentOffset += data.length;
+            session.totalReceived += data.length;
 
-            if (session.totalSize > 0 && session.currentOffset >= session.totalSize) {
-                Files.createDirectories(session.targetPath.getParent());
-                Files.move(session.tempFile, session.targetPath, StandardCopyOption.ATOMIC_MOVE);
+            if (session.totalSize > 0 && session.totalReceived >= session.totalSize) {
+                try (InputStream in = new ByteArrayInputStream(session.buffer.toByteArray())) {
+                    storage.writeFile(session.targetPath, in, session.buffer.size());
+                }
                 uploads.remove(uploadId);
-                return ResponseEntity.ok(Map.of("uploadId", uploadId, "offset", session.currentOffset, "complete", true));
+                return ResponseEntity.ok(Map.of(
+                        "uploadId", uploadId, "offset", session.currentOffset, "complete", true));
             }
         }
 
@@ -171,45 +166,38 @@ public class FileController {
     @DeleteMapping("/upload/{uploadId}")
     public ResponseEntity<Void> cancelUpload(@PathVariable String uploadId) {
         UploadSession session = uploads.remove(uploadId);
-        if (session == null) {
-            return ResponseEntity.notFound().build();
-        }
-        try {
-            Files.deleteIfExists(session.tempFile);
-        } catch (IOException ignored) {}
+        if (session == null) return ResponseEntity.notFound().build();
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping
-    public String delete(@RequestParam String path) throws IOException {
-        Path target = safeResolve(path);
-        if (target == null) return "Access denied";
-        Files.deleteIfExists(target);
-        return "Deleted: " + target.getFileName();
+    public Map<String, String> delete(@RequestParam String path) {
+        String clean = storage.normalize(path);
+        storage.deleteFile(clean);
+        return Map.of("status", "deleted", "path", clean);
     }
 
     @PostMapping("/mkdir")
-    public String createDirectory(@RequestParam String path) throws IOException {
-        Path target = safeResolve(path);
-        if (target == null) return "Access denied";
-        Files.createDirectories(target);
-        return "Created: " + target;
+    public Map<String, String> createDirectory(@RequestParam String path) {
+        String clean = storage.normalize(path);
+        storage.createDirectory(clean);
+        return Map.of("status", "created", "path", clean);
     }
 
     private static class UploadSession {
         final String uploadId;
         final String filename;
-        final Path targetPath;
-        final Path tempFile;
+        final String targetPath;
         final long totalSize;
+        final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         volatile long currentOffset;
+        volatile long totalReceived;
 
-        UploadSession(String uploadId, String filename, Path targetPath,
-                      Path tempFile, long totalSize, long currentOffset) {
+        UploadSession(String uploadId, String filename, String targetPath,
+                      long totalSize, long currentOffset) {
             this.uploadId = uploadId;
             this.filename = filename;
             this.targetPath = targetPath;
-            this.tempFile = tempFile;
             this.totalSize = totalSize;
             this.currentOffset = currentOffset;
         }

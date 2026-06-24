@@ -12,6 +12,7 @@ public class FileServerProperties {
     private Ftps ftps = new Ftps();
     private File file = new File();
     private Http http = new Http();
+    private Storage storage = new Storage();
 
     public Ssh getSsh() { return ssh; }
     public void setSsh(Ssh ssh) { this.ssh = ssh; }
@@ -24,6 +25,56 @@ public class FileServerProperties {
 
     public Http getHttp() { return http; }
     public void setHttp(Http http) { this.http = http; }
+
+    public Storage getStorage() { return storage; }
+    public void setStorage(Storage storage) { this.storage = storage; }
+
+    public static class Storage {
+        private String type = "local";
+        private S3 s3 = new S3();
+        private Obs obs = new Obs();
+
+        public String getType() { return type; }
+        public void setType(String type) { this.type = type; }
+
+        public S3 getS3() { return s3; }
+        public void setS3(S3 s3) { this.s3 = s3; }
+
+        public Obs getObs() { return obs; }
+        public void setObs(Obs obs) { this.obs = obs; }
+
+        public static class S3 {
+            private String bucket = "";
+            private String region = "us-east-1";
+            private String accessKey = "";
+            private String secretKey = "";
+
+            public String getBucket() { return bucket; }
+            public void setBucket(String bucket) { this.bucket = bucket; }
+            public String getRegion() { return region; }
+            public void setRegion(String region) { this.region = region; }
+            public String getAccessKey() { return accessKey; }
+            public void setAccessKey(String accessKey) { this.accessKey = accessKey; }
+            public String getSecretKey() { return secretKey; }
+            public void setSecretKey(String secretKey) { this.secretKey = secretKey; }
+        }
+
+        public static class Obs {
+            private String bucket = "";
+            private String endpoint = "";
+            private String accessKey = "";
+            private String secretKey = "";
+
+            public String getBucket() { return bucket; }
+            public void setBucket(String bucket) { this.bucket = bucket; }
+            public String getEndpoint() { return endpoint; }
+            public void setEndpoint(String endpoint) { this.endpoint = endpoint; }
+            public String getAccessKey() { return accessKey; }
+            public void setAccessKey(String accessKey) { this.accessKey = accessKey; }
+            public String getSecretKey() { return secretKey; }
+            public void setSecretKey(String secretKey) { this.secretKey = secretKey; }
+        }
+    }
 
     public static class Ftps {
         private int port = 21;
