@@ -20,7 +20,6 @@ import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
-import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 public class S3FileStorage implements FileStorage {
@@ -107,7 +106,6 @@ public class S3FileStorage implements FileStorage {
 
             s3Client.putObject(PutObjectRequest.builder()
                             .bucket(bucket).key(toKey(path))
-                            .acl(ObjectCannedACL.PRIVATE)
                             .build(),
                     RequestBody.fromBytes(bytes));
         } catch (IOException e) {

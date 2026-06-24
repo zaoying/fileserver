@@ -10,25 +10,35 @@ public class StorageFileSystemView implements FileSystemView {
 
     private final FileStorage storage;
     private final User user;
-    private final String homeDir;
-    private String workingDir;
+    private final String homePrefix;
+    private String workingDir = "/";
 
     public StorageFileSystemView(FileStorage storage, User user) {
         this.storage = storage;
         this.user = user;
-        this.homeDir = "/" + user.getName();
-        this.workingDir = this.homeDir;
-        storage.createDirectory(homeDir);
+        this.homePrefix = "/" + user.getName();
+        storage.createDirectory(homePrefix);
+    }
+
+    private String storagePath(String userPath) {
+        String norm = storage.normalize(userPath);
+        if (norm.equals("/") || norm.equals(homePrefix)) return homePrefix;
+        if (norm.startsWith(homePrefix + "/")) return norm;
+        return storage.normalize(homePrefix + norm);
+    }
+
+    private FtpFile createFile(String userPath) {
+        return new StorageBackedFtpFile(storage, storagePath(userPath), userPath, user);
     }
 
     @Override
     public FtpFile getHomeDirectory() {
-        return new StorageBackedFtpFile(storage, homeDir, user);
+        return createFile("/");
     }
 
     @Override
     public FtpFile getWorkingDirectory() {
-        return new StorageBackedFtpFile(storage, workingDir, user);
+        return createFile(workingDir);
     }
 
     @Override
@@ -42,7 +52,9 @@ public class StorageFileSystemView implements FileSystemView {
             newDir = workingDir + "/" + dir;
         }
         newDir = storage.normalize(newDir);
-        if (storage.exists(newDir) && storage.isDirectory(newDir)) {
+
+        String storagePath = storagePath(newDir);
+        if (storage.exists(storagePath) && storage.isDirectory(storagePath)) {
             workingDir = newDir;
             return true;
         }
@@ -59,7 +71,7 @@ public class StorageFileSystemView implements FileSystemView {
         } else {
             resolved = workingDir + "/" + file;
         }
-        return new StorageBackedFtpFile(storage, resolved, user);
+        return createFile(resolved);
     }
 
     @Override

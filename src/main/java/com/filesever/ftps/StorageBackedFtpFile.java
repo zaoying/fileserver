@@ -18,21 +18,24 @@ import com.filesever.storage.FileStorage;
 public class StorageBackedFtpFile implements FtpFile {
 
     private final FileStorage storage;
-    private final String path;
+    private final String storagePath;
+    private final String userPath;
     private final String name;
     private final User user;
 
-    public StorageBackedFtpFile(FileStorage storage, String path, User user) {
+    public StorageBackedFtpFile(FileStorage storage, String storagePath,
+                                String userPath, User user) {
         this.storage = storage;
-        this.path = storage.normalize(path);
-        this.name = this.path.equals("/") ? "/" :
-                this.path.substring(this.path.lastIndexOf('/') + 1);
+        this.storagePath = storage.normalize(storagePath);
+        this.userPath = userPath;
+        this.name = this.storagePath.equals("/") ? "/" :
+                this.storagePath.substring(this.storagePath.lastIndexOf('/') + 1);
         this.user = user;
     }
 
     @Override
     public String getAbsolutePath() {
-        return path;
+        return userPath;
     }
 
     @Override
@@ -47,28 +50,28 @@ public class StorageBackedFtpFile implements FtpFile {
 
     @Override
     public boolean isDirectory() {
-        return storage.isDirectory(path);
+        return storage.isDirectory(storagePath);
     }
 
     @Override
     public boolean isFile() {
-        return storage.isFile(path);
+        return storage.isFile(storagePath);
     }
 
     @Override
     public boolean doesExist() {
-        return storage.exists(path);
+        return storage.exists(storagePath);
     }
 
     @Override
     public long getSize() {
-        FileInfo info = storage.getFileInfo(path);
+        FileInfo info = storage.getFileInfo(storagePath);
         return info != null ? info.size() : 0;
     }
 
     @Override
     public long getLastModified() {
-        FileInfo info = storage.getFileInfo(path);
+        FileInfo info = storage.getFileInfo(storagePath);
         return info != null ? info.lastModified() : System.currentTimeMillis();
     }
 
@@ -119,20 +122,20 @@ public class StorageBackedFtpFile implements FtpFile {
 
     @Override
     public boolean mkdir() {
-        storage.createDirectory(path);
+        storage.createDirectory(storagePath);
         return true;
     }
 
     @Override
     public boolean delete() {
-        storage.deleteFile(path);
+        storage.deleteFile(storagePath);
         return true;
     }
 
     @Override
     public boolean move(FtpFile destination) {
         if (destination instanceof StorageBackedFtpFile dest) {
-            storage.moveFile(path, dest.path);
+            storage.moveFile(storagePath, dest.storagePath);
             return true;
         }
         return false;
@@ -140,10 +143,17 @@ public class StorageBackedFtpFile implements FtpFile {
 
     @Override
     public List<? extends FtpFile> listFiles() {
-        List<FileInfo> infos = storage.listFiles(path);
+        List<FileInfo> infos = storage.listFiles(storagePath);
         List<StorageBackedFtpFile> files = new ArrayList<>();
         for (FileInfo info : infos) {
-            files.add(new StorageBackedFtpFile(storage, info.path(), user));
+            String childStoragePath = info.path();
+            String childName = childStoragePath.contains("/")
+                    ? childStoragePath.substring(childStoragePath.lastIndexOf('/') + 1)
+                    : childStoragePath;
+            String childUserPath = userPath.equals("/")
+                    ? "/" + childName
+                    : userPath + "/" + childName;
+            files.add(new StorageBackedFtpFile(storage, childStoragePath, childUserPath, user));
         }
         return files;
     }
@@ -153,14 +163,14 @@ public class StorageBackedFtpFile implements FtpFile {
         return new ByteArrayOutputStream() {
             @Override
             public void close() {
-                storage.writeFile(path, new ByteArrayInputStream(toByteArray()), size());
+                storage.writeFile(storagePath, new ByteArrayInputStream(toByteArray()), size());
             }
         };
     }
 
     @Override
     public InputStream createInputStream(long offset) {
-        InputStream in = storage.readFile(path);
+        InputStream in = storage.readFile(storagePath);
         if (in == null) return null;
         try {
             in.skip(offset);
