@@ -16,6 +16,6 @@ public class StorageBackedFileFactory implements AbstractFileFactory<StorageBack
 
     @Override
     public StorageBackedFile getFile(String path) throws IOException, PermissionDeniedException {
-        return new StorageBackedFile(storage, path);
+        return new StorageBackedFile(storage, path, this);
     }
 }
