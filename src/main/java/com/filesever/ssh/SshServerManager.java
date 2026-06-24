@@ -13,7 +13,7 @@ import com.filesever.config.FileServerProperties.User;
 import com.filesever.storage.FileStorage;
 import com.sshtools.common.ssh.SshException;
 import com.sshtools.server.SshServer;
-import com.sshtools.server.authentication.InMemoryPasswordAuthenticator;
+import com.sshtools.server.InMemoryPasswordAuthenticator;
 
 public class SshServerManager {
 
