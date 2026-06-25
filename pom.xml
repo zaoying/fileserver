@@ -41,12 +41,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.sshtools</groupId>
-            <artifactId>maverick-virtual-filesystem</artifactId>
-            <version>${maverick.version}</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.ftpserver</groupId>
             <artifactId>ftpserver-core</artifactId>
             <version>1.2.0</version>
