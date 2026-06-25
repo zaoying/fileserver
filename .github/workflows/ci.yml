@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      checks: write
     steps:
       - uses: actions/checkout@v4
 
@@ -29,8 +31,24 @@ jobs:
         if: always()
         run: |
           echo '```' >> $GITHUB_STEP_SUMMARY
-          head -c 10000 maven-build.log >> $GITHUB_STEP_SUMMARY
+          cat maven-build.log >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Publish build log to check run
+        if: always()
+        run: |
+          JOBS=$(curl -s -H "Authorization: Bearer ${{ github.token }}" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs?per_page=50")
+          CHECK_RUN_ID=$(echo "$JOBS" | jq '.jobs[] | select(.name == "build") | .id')
+          echo "CHECK_RUN_ID=$CHECK_RUN_ID" >> $GITHUB_ENV
+          LOG=$(cat maven-build.log)
+          jq -n --arg title "Maven Build" --arg log "$LOG" '{output: {title: $title, text: $log}}' > check-run-payload.json
+          curl -s -L -X PATCH \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/${{ github.repository }}/check-runs/$CHECK_RUN_ID" \
+            -d @check-run-payload.json
 
       - name: Upload build log
         if: always()
