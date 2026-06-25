@@ -12,3 +12,5 @@ ftps.jks
 .vscode/
 .DS_Store
 Thumbs.db
+
+maven-build-log.zip
