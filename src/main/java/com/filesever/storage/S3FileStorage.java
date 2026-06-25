@@ -46,7 +46,7 @@ public class S3FileStorage implements FileStorage {
     @Override
     public List<FileInfo> listFiles(String path) {
         String prefix = toKey(path);
-        if (!prefix.isEmpty() && !prefix.endsWith("/")) prefix += "/";
+        String listPrefix = prefix.isEmpty() || prefix.endsWith("/") ? prefix : prefix + "/";
 
         List<FileInfo> result = new ArrayList<>();
 
@@ -54,7 +54,7 @@ public class S3FileStorage implements FileStorage {
             ListObjectsV2Response resp = s3Client.listObjectsV2(
                     ListObjectsV2Request.builder()
                             .bucket(bucket)
-                            .prefix(prefix)
+                            .prefix(listPrefix)
                             .delimiter("/")
                             .build());
 
@@ -66,7 +66,7 @@ public class S3FileStorage implements FileStorage {
             }
 
             resp.contents().stream()
-                    .filter(obj -> !obj.key().equals(prefix))
+                    .filter(obj -> !obj.key().equals(listPrefix))
                     .forEach(obj -> {
                         String name = obj.key();
                         int idx = name.lastIndexOf('/');
