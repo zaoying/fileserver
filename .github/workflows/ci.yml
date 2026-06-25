@@ -9,9 +9,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
     steps:
       - uses: actions/checkout@v4
 
@@ -23,36 +20,7 @@ jobs:
           cache: maven
 
       - name: Build with Maven
-        run: |
-          set +o pipefail
-          mvn package -B -e -DskipTests 2>&1 | tee maven-build.log
-          exit ${PIPESTATUS[0]}
-
-      - name: Write build log to summary
-        if: always()
-        run: |
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat maven-build.log >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-      - name: Upload build log as issue
-        if: always()
-        run: |
-          TITLE="Build failure log $(date +%s)"
-          BODY=$(tail -c 60000 maven-build.log)
-          jq -n --arg title "$TITLE" --arg body "$BODY" '{title: $title, body: $body}' > issue.json
-          curl -s -X POST \
-            -H "Authorization: Bearer ${{ github.token }}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/issues" \
-            -d @issue.json
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: maven-build-log
-          path: maven-build.log
+        run: mvn package -B -DskipTests
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
