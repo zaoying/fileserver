@@ -46,7 +46,7 @@ public class FtpsServerManager {
         ssl.setKeystoreFile(keystoreFile.toFile());
         ssl.setKeystorePassword(keystorePassword);
         ssl.setKeyPassword(keystorePassword);
-        ssl.setEnabledProtocols(new String[]{"TLSv1.2"});
+        ssl.setSslProtocol("TLSv1.2");
         listenerFactory.setSslConfiguration(ssl.createSslConfiguration());
         listenerFactory.setImplicitSsl(properties.getFtps().isImplicitSsl());
 

@@ -106,16 +106,6 @@ public class StorageBackedFtpFile implements FtpFile {
     }
 
     @Override
-    public long getLastAccessTime() {
-        return getLastModified();
-    }
-
-    @Override
-    public long getCreationTime() {
-        return getLastModified();
-    }
-
-    @Override
     public boolean setLastModified(long time) {
         return false;
     }

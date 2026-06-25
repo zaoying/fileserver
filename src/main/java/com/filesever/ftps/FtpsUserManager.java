@@ -11,6 +11,7 @@ import org.apache.ftpserver.ftplet.Authority;
 import org.apache.ftpserver.ftplet.User;
 import org.apache.ftpserver.ftplet.UserManager;
 import org.apache.ftpserver.usermanager.impl.BaseUser;
+import org.apache.ftpserver.usermanager.impl.UsernamePasswordAuthentication;
 import org.apache.ftpserver.usermanager.impl.WritePermission;
 
 import com.filesever.config.FileServerProperties;
@@ -36,7 +37,7 @@ public class FtpsUserManager implements UserManager {
     @Override
     public User authenticate(Authentication authentication)
             throws AuthenticationFailedException {
-        if (authentication instanceof org.apache.ftpserver.ftplet.UsernamePasswordAuthentication auth) {
+        if (authentication instanceof UsernamePasswordAuthentication auth) {
             User user = users.get(auth.getUsername());
             if (user != null && user.getPassword().equals(auth.getPassword())) {
                 return user;
@@ -64,8 +65,8 @@ public class FtpsUserManager implements UserManager {
     }
 
     @Override
-    public User delete(String name) {
-        return users.remove(name);
+    public void delete(String name) {
+        users.remove(name);
     }
 
     @Override
@@ -78,9 +79,4 @@ public class FtpsUserManager implements UserManager {
         return null;
     }
 
-    @Override
-    public boolean isPasswordCorrect(String name, String password) {
-        User user = users.get(name);
-        return user != null && user.getPassword().equals(password);
-    }
 }

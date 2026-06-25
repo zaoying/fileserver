@@ -35,13 +35,19 @@ public class LocalFileStorage implements FileStorage {
         Path target = resolve(path);
         if (!Files.exists(target) || !Files.isDirectory(target)) return List.of();
         try (Stream<Path> paths = Files.list(target)) {
-            return paths.map(p -> new FileInfo(
-                    p.getFileName().toString(),
-                    toStoragePath(p),
-                    Files.isDirectory(p),
-                    Files.size(p),
-                    p.toFile().lastModified()
-            )).toList();
+            return paths.map(p -> {
+                try {
+                    return new FileInfo(
+                            p.getFileName().toString(),
+                            toStoragePath(p),
+                            Files.isDirectory(p),
+                            Files.size(p),
+                            p.toFile().lastModified()
+                    );
+                } catch (IOException e) {
+                    return null;
+                }
+            }).filter(f -> f != null).toList();
         } catch (IOException e) {
             return List.of();
         }
