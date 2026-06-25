@@ -21,8 +21,16 @@ jobs:
 
       - name: Build with Maven
         run: |
-          set -o pipefail
+          set +o pipefail
           mvn package -B -e -DskipTests 2>&1 | tee maven-build.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Write build log to summary
+        if: always()
+        run: |
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          head -c 10000 maven-build.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload build log
         if: always()
