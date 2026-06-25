@@ -11,7 +11,6 @@ import org.apache.ftpserver.ftplet.Authority;
 import org.apache.ftpserver.ftplet.User;
 import org.apache.ftpserver.ftplet.UserManager;
 import org.apache.ftpserver.usermanager.impl.BaseUser;
-import org.apache.ftpserver.usermanager.impl.UsernamePasswordAuthentication;
 import org.apache.ftpserver.usermanager.impl.WritePermission;
 
 import com.filesever.config.FileServerProperties;
@@ -37,11 +36,16 @@ public class FtpsUserManager implements UserManager {
     @Override
     public User authenticate(Authentication authentication)
             throws AuthenticationFailedException {
-        if (authentication instanceof UsernamePasswordAuthentication auth) {
-            User user = users.get(auth.getUsername());
-            if (user != null && user.getPassword().equals(auth.getPassword())) {
+        try {
+            var userMethod = authentication.getClass().getMethod("getUsername");
+            var passMethod = authentication.getClass().getMethod("getPassword");
+            String username = (String) userMethod.invoke(authentication);
+            String password = (String) passMethod.invoke(authentication);
+            User user = users.get(username);
+            if (user != null && user.getPassword().equals(password)) {
                 return user;
             }
+        } catch (Exception e) {
         }
         throw new AuthenticationFailedException("Authentication failed");
     }
