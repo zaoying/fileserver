@@ -10,7 +10,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      checks: write
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v4
 
@@ -34,12 +35,17 @@ jobs:
           cat maven-build.log >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-      - name: Upload build log to pastebin
+      - name: Upload build log as issue
         if: always()
         run: |
-          URL=$(curl -s -F 'f:1=@maven-build.log' https://ix.io 2>&1)
-          echo "BUILD_LOG_URL=$URL" >> $GITHUB_ENV
-          echo "Build log URL: $URL" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "Build log from run ${{ github.run_id }}:"
+            echo '```'
+            cat maven-build.log
+            echo '```'
+          } > body.md
+          gh issue create --title "Build failure log $(date +%s)" \
+            --body-file body.md 2>&1 || echo "Issue creation failed"
 
       - name: Upload build log
         if: always()
