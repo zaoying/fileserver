@@ -39,7 +39,7 @@ jobs:
         if: always()
         run: |
           TITLE="Build failure log $(date +%s)"
-          BODY=$(cat maven-build.log | head -c 60000)
+          BODY=$(tail -c 60000 maven-build.log)
           jq -n --arg title "$TITLE" --arg body "$BODY" '{title: $title, body: $body}' > issue.json
           curl -s -X POST \
             -H "Authorization: Bearer ${{ github.token }}" \
