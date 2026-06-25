@@ -20,7 +20,16 @@ jobs:
           cache: maven
 
       - name: Build with Maven
-        run: mvn package -B -DskipTests
+        run: |
+          set -o pipefail
+          mvn package -B -e -DskipTests 2>&1 | tee maven-build.log
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maven-build-log
+          path: maven-build.log
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
