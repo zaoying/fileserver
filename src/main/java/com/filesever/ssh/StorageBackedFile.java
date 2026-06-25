@@ -210,7 +210,7 @@ public class StorageBackedFile implements AbstractFile {
     }
 
     @Override
-    public void copyFrom(AbstractFile src) throws IOException {
+    public void copyFrom(AbstractFile src) throws IOException, PermissionDeniedException {
         if (src.isDirectory()) {
             createFolder();
             for (var f : src.getChildren()) {
@@ -226,7 +226,7 @@ public class StorageBackedFile implements AbstractFile {
     }
 
     @Override
-    public void moveTo(AbstractFile target) throws IOException {
+    public void moveTo(AbstractFile target) throws IOException, PermissionDeniedException {
         if (target instanceof StorageBackedFile dest) {
             storage.moveFile(path, dest.path);
         } else {
