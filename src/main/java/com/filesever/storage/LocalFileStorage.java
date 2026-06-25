@@ -9,9 +9,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.stream.Stream;
 
-import org.springframework.stereotype.Component;
-
-@Component
 public class LocalFileStorage implements FileStorage {
 
     private final Path baseDir;
